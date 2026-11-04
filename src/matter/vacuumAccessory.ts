@@ -8,6 +8,7 @@ import {
   type Language,
   OPERATIONAL_STATE_LIST,
   OpState,
+  completeOperationalError,
   operationalErrorFromStatus,
   operationalStateFromStatus,
   PowerSourceStatus,
@@ -177,7 +178,7 @@ export class VacuumMatterController {
     await this.push('powerSource', { status: PowerSourceStatus.Active, ...powerSourceFromStatus(s) });
     await this.push('rvcOperationalState', {
       operationalState: operationalStateFromStatus(s),
-      operationalError: operationalErrorFromStatus(s),
+      operationalError: completeOperationalError(operationalErrorFromStatus(s)),
     });
     if (now >= this.runModeLockUntil) {
       await this.push('rvcRunMode', { currentMode: runModeFromStatus(s, taskActive) });
@@ -201,7 +202,7 @@ export class VacuumMatterController {
   }
 
   private async setOpState(state: number): Promise<void> {
-    await this.push('rvcOperationalState', { operationalState: state, operationalError: { errorStateId: 0 } });
+    await this.push('rvcOperationalState', { operationalState: state, operationalError: completeOperationalError({ errorStateId: 0 }) });
   }
 
   // -------------------------------------------------------------- handlers

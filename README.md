@@ -46,7 +46,7 @@ Ak nastavenie zmeníš v aplikácii Xiaomi Home, plugin v Apple Home zobrazí na
 ## Inštalácia
 
 ```bash
-sudo npm install -g ./homebridge-xiaomi-vacuum-matter-1.0.0.tgz
+sudo npm install -g ./homebridge-xiaomi-vacuum-matter-1.0.1.tgz
 ```
 
 (Na Homebridge oficiálnom obraze / `hb-service` inštalácii spusti tento príkaz v termináli Homebridge UI; súbor `.tgz` tam najprv nahraj.)
@@ -147,6 +147,12 @@ End-to-end test s Matter kontrolérom (spáruje sa s vysávačom publikovaným H
 
 ```bash
 node test/e2e/matter-e2e.mjs --port <matter port vysávača> --passcode <passcode> --discriminator <discriminator> [--move --clean-mode 2]
+```
+
+Sledovanie prevádzkového stavu a chýb tak, ako ich vidí Matter kontrolér (každé 3 s):
+
+```bash
+node test/e2e/watch-errors.mjs --port <matter port vysávača> --passcode <passcode> --discriminator <discriminator> --count 20
 ```
 
 ## Poznámky

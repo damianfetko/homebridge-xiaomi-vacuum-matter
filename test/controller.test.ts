@@ -201,7 +201,7 @@ describe('state sync', () => {
     await ctrl.sync(await vacuum.refresh());
     expect(sink.lastOf('rvcOperationalState')).toMatchObject({
       operationalState: OpState.Error,
-      operationalError: { errorStateId: 65, errorStateLabel: 'Robot stuck' },
+      operationalError: { errorStateId: 65, errorStateDetails: 'Robot stuck (Xiaomi fault 80)' },
     });
 
     dev.props.set('2.1', 13);
@@ -210,6 +210,14 @@ describe('state sync', () => {
     await ctrl.sync(await vacuum.refresh());
     expect(sink.lastOf('serviceArea')).toEqual({ selectedAreas: [], currentArea: null });
     expect(ctrl.selection).toEqual([]);
+    // every pushed error is complete and label free (see Matter conformance regression in v1.0.0)
+    const errs = sink.updates.filter((u) => u.cluster === 'rvcOperationalState').map((u) => u.attrs.operationalError as Record<string, unknown>);
+    expect(errs.length).toBeGreaterThan(2);
+    for (const e of errs) {
+      expect(e).not.toHaveProperty('errorStateLabel');
+      expect(typeof e.errorStateDetails).toBe('string');
+    }
+    expect(sink.lastOf('rvcOperationalState')).toMatchObject({ operationalError: { errorStateId: 0, errorStateDetails: '' } });
   });
 
   it('marks the power source unavailable when offline', async () => {

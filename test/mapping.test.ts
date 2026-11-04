@@ -7,6 +7,7 @@ import {
   CLEAN_MODES,
   cleanModeFromStatus,
   cleanModes,
+  completeOperationalError,
   errorStateId,
   ModeTag,
   OpError,
@@ -69,14 +70,33 @@ describe('operational state', () => {
   it('reports error details', () => {
     const e = operationalErrorFromStatus(st({ state: VacuumState.Error, fault: 80 }));
     expect(e.errorStateId).toBe(OpError.Stuck);
-    expect(e.errorStateLabel).toBe('Robot stuck');
-    expect(e.errorStateLabel!.length).toBeLessThanOrEqual(64);
+    expect(e).toEqual({ errorStateId: OpError.Stuck, errorStateDetails: 'Robot stuck (Xiaomi fault 80)' });
+  });
+
+  // Regression (v1.0.0): Matter allows ErrorStateLabel only for ids 128-191 and
+  // Homebridge cannot remove a label once set, so no label is ever sent.
+  it('never sends ErrorStateLabel and only standard error ids (Matter conformance)', () => {
+    const standard = new Set<number>(Object.values(OpError));
+    for (let fault = 0; fault <= 1000; fault++) {
+      const e = operationalErrorFromStatus(st({ state: VacuumState.Error, fault })) as Record<string, unknown>;
+      expect(e).not.toHaveProperty('errorStateLabel');
+      expect(standard.has(e.errorStateId as number)).toBe(true);
+      expect(((e.errorStateDetails as string | undefined) ?? '').length).toBeLessThanOrEqual(64);
+    }
+    expect(operationalErrorFromStatus(st({ state: VacuumState.Error, fault: 14 }))).toEqual({
+      errorStateId: OpError.UnableToCompleteOperation, errorStateDetails: 'Fan error (Xiaomi fault 14)',
+    });
+  });
+
+  it('always sends every error field so nothing stale survives a merge (null is rejected by matter.js)', () => {
+    expect(completeOperationalError({ errorStateId: 0 })).toEqual({ errorStateId: 0, errorStateDetails: '' });
+    expect(completeOperationalError({ errorStateId: 65, errorStateDetails: 'x' })).toEqual({ errorStateId: 65, errorStateDetails: 'x' });
   });
 
   it('a task halted at the station with a fault is an error (observed on the real X20+: 2.1=21, 4.25=4, 2.2=107)', () => {
     const s = st({ state: VacuumState.WashingMopPause, status: 6, taskStatus: 1, washStation: 4, fault: 107 });
     expect(operationalStateFromStatus(s)).toBe(OpState.Error);
-    expect(operationalErrorFromStatus(s)).toMatchObject({ errorStateId: OpError.WaterTankEmpty, errorStateLabel: 'Clean water tank empty' });
+    expect(operationalErrorFromStatus(s)).toEqual({ errorStateId: OpError.WaterTankEmpty, errorStateDetails: 'Clean water tank empty (Xiaomi fault 107)' });
     expect(runModeFromStatus(s, true)).toBe(RUN_MODE_CLEANING);
     // paused by the user without a fault stays paused
     expect(operationalStateFromStatus(st({ state: VacuumState.Paused, fault: 0 }))).toBe(OpState.Paused);

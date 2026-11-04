@@ -283,11 +283,10 @@ export function operationalErrorFromStatus(s: VacuumStatus) {
     return { errorStateId: OpError.NoError };
   }
   const name = FAULT_NAMES[s.fault] ?? `Error ${s.fault}`;
-  return {
-    errorStateId: errorStateId(s.fault),
-    errorStateLabel: name.slice(0, 64),
-    errorStateDetails: `Xiaomi fault code ${s.fault}`,
-  };
+  // Only standard error ids are used: Matter allows ErrorStateLabel solely for
+  // manufacturer ids (128-191), and Homebridge cannot remove a label once set
+  // (struct updates are merged), so a label would break every later update.
+  return { errorStateId: errorStateId(s.fault), errorStateDetails: `${name} (Xiaomi fault ${s.fault})`.slice(0, 64) };
 }
 
 // ----------------------------------------------------------------- battery
@@ -372,4 +371,12 @@ export function supportedAreas(rooms: RoomConfig[]) {
       landmarkInfo: null,
     },
   }));
+}
+
+/**
+ * Homebridge merges struct updates field by field, so details from a previous
+ * error would survive into the next state. Always send both fields (matter.js rejects null, so "" means none).
+ */
+export function completeOperationalError(e: { errorStateId: number; errorStateDetails?: string }) {
+  return { errorStateId: e.errorStateId, errorStateDetails: e.errorStateDetails ?? "" };
 }

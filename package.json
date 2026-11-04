@@ -1,7 +1,7 @@
 {
   "name": "homebridge-xiaomi-vacuum-matter",
   "displayName": "Xiaomi Vacuum Matter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Homebridge 2.x plugin exposing Xiaomi / Dreame robot vacuums (X20+, xiaomi.vacuum.c102gl) to Apple Home as a native Matter Robotic Vacuum Cleaner. Local miIO/MIoT communication only.",
   "type": "module",
   "main": "dist/index.js",
