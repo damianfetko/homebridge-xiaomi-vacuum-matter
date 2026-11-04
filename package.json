@@ -1,0 +1,51 @@
+{
+  "name": "homebridge-xiaomi-vacuum-matter",
+  "displayName": "Xiaomi Vacuum Matter",
+  "version": "1.0.0",
+  "description": "Homebridge 2.x plugin exposing Xiaomi / Dreame robot vacuums (X20+, xiaomi.vacuum.c102gl) to Apple Home as a native Matter Robotic Vacuum Cleaner. Local miIO/MIoT communication only.",
+  "type": "module",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "author": "Damian Fetko",
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge",
+    "matter",
+    "xiaomi",
+    "dreame",
+    "vacuum",
+    "robot-vacuum",
+    "miot",
+    "apple-home"
+  ],
+  "engines": {
+    "homebridge": "^2.5.0",
+    "node": "^22.12.0 || ^24 || ^26"
+  },
+  "files": [
+    "dist",
+    "config.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "xvm-cli": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build",
+    "test:e2e": "node test/e2e/matter-e2e.mjs"
+  },
+  "peerDependencies": {
+    "homebridge": "^2.5.0"
+  },
+  "devDependencies": {
+    "@project-chip/matter.js": "^0.18.0",
+    "@types/node": "^22.20.5",
+    "homebridge": "^2.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

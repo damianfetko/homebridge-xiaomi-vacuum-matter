@@ -1,0 +1,271 @@
+{
+  "pluginAlias": "XiaomiVacuumMatter",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Exposes Xiaomi / Dreame robot vacuums to Apple Home as native **Matter** robot vacuums. Requires Homebridge 2.5+ with **Matter enabled** on the bridge (recommended: run as a child bridge with Matter enabled). Communication is 100 % local (miIO).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Platform name",
+        "type": "string",
+        "default": "Xiaomi Vacuum Matter"
+      },
+      "devices": {
+        "title": "Vacuums",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "default": "Robot Vacuum",
+              "required": true
+            },
+            "ip": {
+              "title": "IP address",
+              "type": "string",
+              "format": "ipv4",
+              "required": true
+            },
+            "token": {
+              "title": "Token",
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "required": true
+            },
+            "deviceId": {
+              "title": "Device ID (optional)",
+              "type": "string"
+            },
+            "language": {
+              "title": "Language of mode names",
+              "type": "string",
+              "default": "en",
+              "oneOf": [
+                {
+                  "title": "English",
+                  "enum": [
+                    "en"
+                  ]
+                },
+                {
+                  "title": "Slovenčina",
+                  "enum": [
+                    "sk"
+                  ]
+                }
+              ]
+            },
+            "rooms": {
+              "title": "Rooms (for room cleaning in Apple Home)",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "title": "Room / segment ID",
+                    "type": "integer",
+                    "minimum": 1,
+                    "required": true
+                  },
+                  "name": {
+                    "title": "Name",
+                    "type": "string",
+                    "required": true
+                  },
+                  "areaType": {
+                    "title": "Room type (icon)",
+                    "type": "string",
+                    "enum": [
+                      "Aisle",
+                      "Attic",
+                      "BackDoor",
+                      "BackYard",
+                      "Balcony",
+                      "Ballroom",
+                      "Bathroom",
+                      "Bedroom",
+                      "Border",
+                      "Boxroom",
+                      "BreakfastRoom",
+                      "Carport",
+                      "Cellar",
+                      "Cloakroom",
+                      "Closet",
+                      "Conservatory",
+                      "Corridor",
+                      "CraftRoom",
+                      "Cupboard",
+                      "Deck",
+                      "Den",
+                      "Dining",
+                      "DrawingRoom",
+                      "DressingRoom",
+                      "Driveway",
+                      "Elevator",
+                      "Ensuite",
+                      "Entrance",
+                      "Entryway",
+                      "FamilyRoom",
+                      "Foyer",
+                      "FrontDoor",
+                      "FrontYard",
+                      "GameRoom",
+                      "Garage",
+                      "GarageDoor",
+                      "Garden",
+                      "GardenDoor",
+                      "GuestBathroom",
+                      "GuestBedroom",
+                      "GuestRoom",
+                      "Gym",
+                      "Hallway",
+                      "HearthRoom",
+                      "KidsRoom",
+                      "KidsBedroom",
+                      "Kitchen",
+                      "LaundryRoom",
+                      "Lawn",
+                      "Library",
+                      "LivingRoom",
+                      "Lounge",
+                      "MediaTvRoom",
+                      "MudRoom",
+                      "MusicRoom",
+                      "Nursery",
+                      "Office",
+                      "OutdoorKitchen",
+                      "Outside",
+                      "Pantry",
+                      "ParkingLot",
+                      "Parlor",
+                      "Patio",
+                      "PlayRoom",
+                      "PoolRoom",
+                      "Porch",
+                      "PrimaryBathroom",
+                      "PrimaryBedroom",
+                      "Ramp",
+                      "ReceptionRoom",
+                      "RecreationRoom",
+                      "Roof",
+                      "Sauna",
+                      "Scullery",
+                      "SewingRoom",
+                      "Shed",
+                      "SideDoor",
+                      "SideYard",
+                      "SittingRoom",
+                      "Snug",
+                      "Spa",
+                      "Staircase",
+                      "SteamRoom",
+                      "StorageRoom",
+                      "Studio",
+                      "Study",
+                      "SunRoom",
+                      "SwimmingPool",
+                      "Terrace",
+                      "UtilityRoom",
+                      "Ward",
+                      "Workshop",
+                      "Toilet"
+                    ]
+                  },
+                  "floor": {
+                    "title": "Floor number",
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            "idleAction": {
+              "title": "When stopped from Apple Home",
+              "type": "string",
+              "default": "dock",
+              "oneOf": [
+                {
+                  "title": "Stop and return to dock",
+                  "enum": [
+                    "dock"
+                  ]
+                },
+                {
+                  "title": "Stop in place",
+                  "enum": [
+                    "stop"
+                  ]
+                },
+                {
+                  "title": "Pause",
+                  "enum": [
+                    "pause"
+                  ]
+                }
+              ]
+            },
+            "roomRepeats": {
+              "title": "Passes per room",
+              "type": "integer",
+              "default": 1,
+              "minimum": 1,
+              "maximum": 3
+            },
+            "directModeChange": {
+              "title": "Allow changing suction / water while cleaning",
+              "type": "boolean",
+              "default": true
+            },
+            "pollInterval": {
+              "title": "Poll interval when idle (s)",
+              "type": "integer",
+              "default": 15,
+              "minimum": 3,
+              "maximum": 300
+            },
+            "activePollInterval": {
+              "title": "Poll interval while cleaning (s)",
+              "type": "integer",
+              "default": 4,
+              "minimum": 2,
+              "maximum": 60
+            },
+            "extraSwitches": {
+              "title": "Extra Matter switches (on the Matter bridge)",
+              "type": "object",
+              "properties": {
+                "autoEmpty": {
+                  "title": "Empty dust bin",
+                  "type": "boolean",
+                  "default": false
+                },
+                "washMop": {
+                  "title": "Wash mop",
+                  "type": "boolean",
+                  "default": false
+                },
+                "dryMop": {
+                  "title": "Dry mop",
+                  "type": "boolean",
+                  "default": false
+                },
+                "locate": {
+                  "title": "Find vacuum",
+                  "type": "boolean",
+                  "default": false
+                }
+              }
+            },
+            "debug": {
+              "title": "Debug logging",
+              "type": "boolean",
+              "default": false
+            }
+          }
+        }
+      }
+    }
+  }
+}
