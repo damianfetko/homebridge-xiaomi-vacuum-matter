@@ -41,6 +41,8 @@ type Cluster = 'rvcRunMode' | 'rvcCleanMode' | 'rvcOperationalState' | 'powerSou
 /** Thin interface over api.matter so the controller can be tested without Homebridge. */
 export interface MatterStateSink {
   updateAccessoryState(uuid: string, cluster: string, attributes: Record<string, unknown>): Promise<void>;
+  /** Live endpoint state (used to verify that an update really landed). */
+  getAccessoryState?(uuid: string, cluster: string): Promise<Record<string, unknown> | undefined>;
   status: { InvalidInState: new (message?: string) => Error; Busy: new (message?: string) => Error };
 }
 
@@ -52,6 +54,8 @@ export class VacuumMatterController {
   private runModeLockUntil = 0;
   private registered = false;
   private lastTaskActive = false;
+  private lastSummary = '';
+  private warnedNoLive = false;
 
   constructor(
     private readonly matter: MatterStateSink,
@@ -150,13 +154,32 @@ export class VacuumMatterController {
 
   // ------------------------------------------------------------ state sync
 
+  /**
+   * Push attributes to the Matter endpoint unless the endpoint already holds them.
+   *
+   * api.matter.updateAccessoryState() only emits an event and resolves right away:
+   * a rejected update (e.g. matter.js validation) is only logged by Homebridge.
+   * So the live endpoint state is the source of truth, not what was sent before –
+   * every sync compares against it and re-sends whatever did not land.
+   */
   private async push(cluster: Cluster, attrs: Record<string, unknown>, force = false): Promise<void> {
     if (!this.registered) {
       return;
     }
     const key = JSON.stringify(attrs);
-    if (!force && this.last[cluster] === key) {
-      return;
+    if (!force) {
+      const live = await this.readLive(cluster);
+      if (live !== undefined) {
+        if (matchesSubset(live, attrs)) {
+          this.last[cluster] = key;
+          return;
+        }
+        if (this.last[cluster] === key) {
+          this.log.warn(`Matter ${cluster} did not take the last update, sending it again: ${key}`);
+        }
+      } else if (this.last[cluster] === key) {
+        return;
+      }
     }
     try {
       await this.matter.updateAccessoryState(this.uuid, cluster, attrs);
@@ -164,6 +187,23 @@ export class VacuumMatterController {
     } catch (err) {
       this.log.warn(`Failed to update ${cluster}: ${(err as Error).message}`);
     }
+  }
+
+  private async readLive(cluster: Cluster): Promise<Record<string, unknown> | undefined> {
+    if (!this.matter.getAccessoryState) {
+      return undefined;
+    }
+    let live: Record<string, unknown> | undefined;
+    try {
+      live = await this.matter.getAccessoryState(this.uuid, cluster);
+    } catch {
+      live = undefined;
+    }
+    if (live === undefined && !this.warnedNoLive) {
+      this.warnedNoLive = true;
+      this.log.warn(`Live Matter state of ${cluster} is not readable – falling back to change-only updates`);
+    }
+    return live;
   }
 
   async sync(s: VacuumStatus): Promise<void> {
@@ -199,6 +239,21 @@ export class VacuumMatterController {
       }
     }
     this.lastTaskActive = taskActive;
+    this.logSummary(s, taskActive);
+  }
+
+  /** One info line whenever what Matter controllers (Apple Home) see changes. */
+  private logSummary(s: VacuumStatus, taskActive: boolean): void {
+    const op = operationalStateFromStatus(s);
+    const opName = Object.entries(OpState).find(([, v]) => v === op)?.[0] ?? String(op);
+    const run = runModeFromStatus(s, taskActive) === RUN_MODE_CLEANING ? 'Cleaning' : 'Idle';
+    const mode = findCleanMode(cleanModeFromStatus(s) ?? -1)?.labels.en ?? '?';
+    const err = operationalErrorFromStatus(s);
+    const summary = `run mode ${run}, state ${opName}, clean mode ${mode}${err.errorStateId ? `, error ${err.errorStateDetails}` : ''}`;
+    if (summary !== this.lastSummary) {
+      this.lastSummary = summary;
+      this.log.info(`Matter: ${summary}, battery ${s.battery ?? '?'}%`);
+    }
   }
 
   private async setOpState(state: number): Promise<void> {
@@ -349,4 +404,18 @@ export class VacuumMatterController {
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/** True when every attribute in `want` equals the live value (objects/arrays compared recursively, extra live fields ignored). */
+export function matchesSubset(live: unknown, want: unknown): boolean {
+  if (want === null || typeof want !== 'object') {
+    return live === want || (want === null && live === undefined);
+  }
+  if (Array.isArray(want)) {
+    return Array.isArray(live) && live.length === want.length && want.every((w, i) => matchesSubset(live[i], w));
+  }
+  if (live === null || typeof live !== 'object') {
+    return false;
+  }
+  return Object.entries(want as Record<string, unknown>).every(([k, v]) => matchesSubset((live as Record<string, unknown>)[k], v));
 }

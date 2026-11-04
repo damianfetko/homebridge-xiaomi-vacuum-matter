@@ -171,9 +171,7 @@ export class XiaomiVacuum extends EventEmitter {
       this.applyStatus(next);
       return next;
     } catch (err) {
-      if (this._status.online) {
-        this.applyStatus({ ...this._status, online: false });
-      }
+      this.applyStatus({ ...this._status, online: false });
       this.emit('error', err);
       throw err;
     }
@@ -210,12 +208,14 @@ export class XiaomiVacuum extends EventEmitter {
     };
   }
 
+  /** Emits 'update' on changes and 'poll' after every refresh (also when unchanged). */
   private applyStatus(next: VacuumStatus): void {
     const prev = this._status;
     this._status = next;
     if (JSON.stringify(prev) !== JSON.stringify(next)) {
       this.emit('update', next, prev);
     }
+    this.emit('poll', next);
   }
 
   // ---------------------------------------------------------------- commands

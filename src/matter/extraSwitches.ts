@@ -122,8 +122,16 @@ export class ExtraSwitchesController {
   }
 
   private async set(e: SwitchEntry, on: boolean, force = false): Promise<void> {
-    if (!this.registered || (!force && e.lastOn === on)) {
+    if (!this.registered) {
       return;
+    }
+    if (!force) {
+      // Verify against the live endpoint (updates are fire-and-forget in Homebridge)
+      const live = this.matter.getAccessoryState ? await this.matter.getAccessoryState(e.uuid, 'onOff').catch(() => undefined) : undefined;
+      if (live ? live.onOff === on : e.lastOn === on) {
+        e.lastOn = on;
+        return;
+      }
     }
     try {
       await this.matter.updateAccessoryState(e.uuid, 'onOff', { onOff: on });

@@ -154,9 +154,19 @@ export class XiaomiVacuumMatterPlatform implements DynamicPlatformPlugin {
       ? new ExtraSwitchesController(this.api.matter as unknown as MatterStateSink, log, vacuum, { name, serialNumber: serial, model, language, kinds }, (k) => this.api.matter!.uuid.generate(k))
       : undefined;
 
-    vacuum.on('update', (s) => {
-      void controller.sync(s);
-      void switches?.sync(s);
+    // Sync after every poll, not only on changes: the controller verifies the live
+    // Matter state and re-sends anything that did not land.
+    let syncing = false;
+    vacuum.on('poll', (s) => {
+      if (syncing) {
+        return;
+      }
+      syncing = true;
+      Promise.all([controller.sync(s), switches?.sync(s)])
+        .catch((err) => log.debug(`Sync failed: ${(err as Error).message}`))
+        .finally(() => {
+          syncing = false;
+        });
     });
     vacuum.client.on('offline', () => log.debug('Vacuum offline'));
     vacuum.on('error', (err: Error) => log.debug(`Poll failed: ${err.message}`));

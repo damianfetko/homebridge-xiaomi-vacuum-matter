@@ -251,3 +251,90 @@ describe('extra switches', () => {
     expect(actions()).toEqual(['2.4', '2.6', '2.8', '2.9', '7.1']);
   });
 });
+
+/** Sink that behaves like Homebridge: updates are fire-and-forget and may silently not land. */
+class LiveSink extends Sink {
+  live = new Map<string, Record<string, unknown>>();
+  dropNext = new Set<string>();
+  override async updateAccessoryState(uuid: string, cluster: string, attrs: Record<string, unknown>): Promise<void> {
+    await super.updateAccessoryState(uuid, cluster, attrs);
+    if (this.dropNext.delete(cluster)) {
+      return; // resolved, but never applied (e.g. rejected by matter.js validation)
+    }
+    this.live.set(cluster, { ...(this.live.get(cluster) ?? {}), ...attrs });
+  }
+  async getAccessoryState(_uuid: string, cluster: string) {
+    return this.live.get(cluster);
+  }
+}
+
+describe('self-healing sync (regression: Apple Home stuck on a stale state)', () => {
+  it('re-sends an update that resolved but did not land', async () => {
+    const live = new LiveSink();
+    const c = new VacuumMatterController(live, log, vacuum, {
+      name: 'x', serialNumber: '1', model: 'm', language: 'en', rooms: [], idleAction: 'dock', roomRepeats: 1, directModeChange: true,
+    }, 'u');
+    await c.onRegistered();
+    expect(live.live.get('rvcRunMode')).toEqual({ currentMode: RUN_MODE_IDLE });
+
+    // robot starts vacuuming from the Xiaomi app, the first update gets lost
+    dev.props.set('2.1', 1);
+    dev.props.set('4.7', 1);
+    dev.props.set('4.23', 133122);
+    live.dropNext.add('rvcRunMode');
+    live.dropNext.add('rvcOperationalState');
+    const s = await vacuum.refresh();
+    await c.sync(s);
+    expect(live.live.get('rvcRunMode')).toEqual({ currentMode: RUN_MODE_IDLE });
+
+    // next poll with an unchanged robot status repairs it
+    await c.sync(await vacuum.refresh());
+    expect(live.live.get('rvcRunMode')).toEqual({ currentMode: RUN_MODE_CLEANING });
+    expect(live.live.get('rvcOperationalState')).toMatchObject({ operationalState: OpState.Running });
+    expect(live.live.get('rvcCleanMode')).toEqual({ currentMode: 2 });
+
+    // and once everything matches nothing more is sent
+    const n = live.updates.length;
+    await c.sync(await vacuum.refresh());
+    expect(live.updates.length).toBe(n);
+  });
+
+  it('repairs state changed behind its back (e.g. restored from cache)', async () => {
+    const live = new LiveSink();
+    const c = new VacuumMatterController(live, log, vacuum, {
+      name: 'x', serialNumber: '1', model: 'm', language: 'en', rooms: [], idleAction: 'dock', roomRepeats: 1, directModeChange: true,
+    }, 'u');
+    await c.onRegistered();
+    live.live.set('rvcOperationalState', { operationalState: OpState.Running, operationalError: { errorStateId: 0 } });
+    await c.sync(vacuum.status);
+    expect(live.live.get('rvcOperationalState')).toMatchObject({ operationalState: OpState.Docked });
+  });
+
+  it('emits poll after every refresh, update only on change', async () => {
+    let polls = 0;
+    let updates = 0;
+    vacuum.on('poll', () => polls++);
+    vacuum.on('update', () => updates++);
+    await vacuum.refresh();
+    await vacuum.refresh();
+    expect(polls).toBe(2);
+    expect(updates).toBe(0);
+    dev.props.set('3.1', 50);
+    await vacuum.refresh();
+    expect(polls).toBe(3);
+    expect(updates).toBe(1);
+  });
+});
+
+describe('matchesSubset', () => {
+  it('compares recursively and ignores extra live fields', async () => {
+    const { matchesSubset } = await import('../src/matter/vacuumAccessory.js');
+    expect(matchesSubset({ a: 1, b: 2 }, { a: 1 })).toBe(true);
+    expect(matchesSubset({ a: 1 }, { a: 2 })).toBe(false);
+    expect(matchesSubset({ e: { errorStateId: 0, errorStateDetails: '', x: 1 } }, { e: { errorStateId: 0, errorStateDetails: '' } })).toBe(true);
+    expect(matchesSubset({ l: [1, 2] }, { l: [1, 2] })).toBe(true);
+    expect(matchesSubset({ l: [1] }, { l: [1, 2] })).toBe(false);
+    expect(matchesSubset({ c: undefined }, { c: null })).toBe(true);
+    expect(matchesSubset(undefined, { a: 1 })).toBe(false);
+  });
+});

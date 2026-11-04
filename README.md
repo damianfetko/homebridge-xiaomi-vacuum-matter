@@ -46,7 +46,7 @@ Ak nastavenie zmeníš v aplikácii Xiaomi Home, plugin v Apple Home zobrazí na
 ## Inštalácia
 
 ```bash
-sudo npm install -g ./homebridge-xiaomi-vacuum-matter-1.0.1.tgz
+sudo npm install -g ./homebridge-xiaomi-vacuum-matter-1.0.2.tgz
 ```
 
 (Na Homebridge oficiálnom obraze / `hb-service` inštalácii spusti tento príkaz v termináli Homebridge UI; súbor `.tgz` tam najprv nahraj.)
@@ -149,6 +149,12 @@ End-to-end test s Matter kontrolérom (spáruje sa s vysávačom publikovaným H
 node test/e2e/matter-e2e.mjs --port <matter port vysávača> --passcode <passcode> --discriminator <discriminator> [--move --clean-mode 2]
 ```
 
+Sledovanie stavu tak, ako ho vidí Apple Home (subscription) v porovnaní s priamym čítaním zo zariadenia:
+
+```bash
+node test/e2e/watch-state.mjs --port <matter port vysávača> --passcode <passcode> --discriminator <discriminator> --count 20
+```
+
 Sledovanie prevádzkového stavu a chýb tak, ako ich vidí Matter kontrolér (každé 3 s):
 
 ```bash
@@ -156,6 +162,8 @@ node test/e2e/watch-errors.mjs --port <matter port vysávača> --passcode <passc
 ```
 
 ## Poznámky
+
+* V logu Homebridge sa pri každej zmene vypíše riadok `Matter: run mode …, state …, clean mode …` – presne to, čo v tej chvíli vidí Apple Home. Ak Apple Home ukazuje niečo iné, problém je na strane Apple Home / domáceho centra.
 
 * Ak robot pri štarte hlási chybu „Clean water tank empty“ (kód 107), stanica nemá vodu na umytie mopu – v Apple Home sa zobrazí chyba „prázdna nádrž na vodu“. Režimy „Vysávanie“ vodu nepotrebujú.
 * Plugin nepoužíva cloud, takže nemá prístup k mape, histórii čistení ani k aktualizáciám firmvéru.
